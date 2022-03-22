@@ -1,0 +1,18 @@
+
+package a;
+package b;
+# packages defined
+import a.xyz; import b.c...67; # imports
+abstract class {
+val a, b, c : real;
+def 1x (y, w) { y <= w; };
+while (not ( true or false)) return (47 * (x + 25)); }
+protected object {
+val i, j, k : int;
+if (@ x 25.2.5) case i = j + k * 5 => print (i); else in (i, j, k);
+} # end object
+private class {
+val tt, ff: bool;
+return (not (true or @ x 5) and false);
+}
+$
