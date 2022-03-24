@@ -3,12 +3,12 @@ release:
 
 run: release
 	@echo "Running on Dr. Kim's test program..."
-	./target/release/parser samples/kim_example.ssc
+	./target/release/parser samples/new_example.ssc
 
 debug:
 	cargo build
 	@echo "Opening lldb..."
-	lldb ./target/debug/parser samples/kim_example.ssc
+	lldb ./target/debug/parser samples/new_example.ssc
 
 watch:
 	cargo watch -x fmt -x build -x test
@@ -25,7 +25,7 @@ loc: clean
 	cloc .
 
 flamegraph:
-	sudo cargo flamegraph --dev -- samples/kim_example.ssc
+	sudo cargo flamegraph --dev -- samples/new_example.ssc
 
 cov:
 	cargo llvm-cov
