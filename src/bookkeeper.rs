@@ -31,6 +31,7 @@ pub struct Token {
     pub(crate) token: String,
     pub(crate) symbol_type: SymbolType,
     pub(crate) line_number: usize,
+    pub(crate) code: u8,
 }
 
 // This tells the program how to println a token in a nice way.
@@ -50,6 +51,7 @@ impl std::fmt::Display for Token {
 pub struct SymbolTableToken {
     pub(crate) token: String,
     pub(crate) symbol_type: SymbolType,
+    pub(crate) code: u8,
 }
 
 // This tells the program how to println a symbol table token in a nice way.
@@ -64,6 +66,7 @@ pub fn convert_token_to_symbol_table_token(tkn: Token) -> SymbolTableToken {
     SymbolTableToken {
         token: tkn.token.clone(),
         symbol_type: tkn.symbol_type,
+        code: tkn.code,
     }
 }
 
@@ -98,6 +101,7 @@ mod symbol_table_tests {
         let tkn = SymbolTableToken {
             token: "test".to_string(),
             symbol_type: SymbolType::Identifier,
+            code: 1,
         };
 
         symtab.insert(tkn);
@@ -114,6 +118,7 @@ mod symbol_table_tests {
         let tkn = SymbolTableToken {
             token: "test".to_string(),
             symbol_type: SymbolType::Identifier,
+            code: 1,
         };
 
         let dup_tkn = tkn.clone();

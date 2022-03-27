@@ -13,11 +13,13 @@ use colored::*;
 // Importing our third-party files.
 mod bookkeeper;
 mod error;
+mod parser;
 mod scanner;
 
 use crate::bookkeeper::{convert_token_to_symbol_table_token, Bookkeeper, SymbolType, Token};
 use crate::error::Error;
-use crate::scanner::Source;
+use crate::parser::Parser;
+use crate::scanner::Scanner;
 
 // Main. What gets called when we invoke the program.
 fn main() {
@@ -45,8 +47,12 @@ fn main() {
         Ok(_) => println!("{}\n{}", "Source program:".blue().bold(), s),
     };
 
+    let s_clone = s.clone();
+
     // Initialize the source
-    let mut src: Source = Source::new(s);
+    let mut src: Scanner = Scanner::new(s_clone);
+    // The above one is the old one, soon it will be replaced with this one:
+    let mut parser: Parser = Parser::new(s);
 
     //Initialize the symbol table
     let mut symtab: Bookkeeper = Bookkeeper::new();
@@ -59,7 +65,7 @@ fn main() {
 
     // While the source is not done, keep scanning for tokens.
     while !src.is_done() {
-        let scan_result = src.scan();
+        let scan_result = src.token_request();
         // These are options, which be of type Some() or None.
         let tkn: Option<&Token> = scan_result.0;
         let err: Option<&Error> = scan_result.1;
