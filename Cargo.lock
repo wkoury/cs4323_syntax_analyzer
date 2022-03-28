@@ -50,6 +50,7 @@ name = "parser"
 version = "1.0.0"
 dependencies = [
  "colored",
+ "lazy_static",
 ]
 
 [[package]]
