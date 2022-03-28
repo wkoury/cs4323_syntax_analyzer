@@ -1,4 +1,6 @@
 // A simple implementation of a stack using Rust's Vec<u8>. I am doing this to ensure that the behaviors are as expected with a stack, since Rust wants us to use a data structure that some might consider inappropriate for this.
+
+use crate::DEBUG;
 pub struct Stack {
     stack: Vec<u8>,
 }
@@ -12,11 +14,42 @@ impl Stack {
     }
 
     pub fn push(&mut self, n: u8) {
+        if DEBUG {
+            println!("Pushing {} to the stack.", n);
+        }
+
         self.stack.push(n);
+
+        if DEBUG {
+            dbg!(&self.stack);
+        }
     }
 
     pub fn pop(&mut self) -> u8 {
-        self.stack.pop().unwrap()
+        if self.is_empty() {
+            panic!("Attempting to pop() from an empty stack!");
+        }
+        let ret = self.stack.pop().unwrap();
+
+        if DEBUG {
+            println!("Popping {} from the stack.", ret);
+            dbg!(&self.stack);
+        }
+
+        ret
+    }
+
+    pub fn peek(&mut self) -> u8 {
+        if self.is_empty() {
+            panic!("Attempting to peek() from an empty stack!");
+        }
+        let ret = self.stack[self.stack.len() - 1];
+
+        if DEBUG {
+            println!("Peeking {} from the stack.", ret);
+        }
+
+        ret
     }
 
     // Determine whether or not we have reached the stack bottom marker.

@@ -19,11 +19,12 @@ mod error;
 mod parser;
 mod pda;
 mod scanner;
+mod stack;
 
-use crate::bookkeeper::{convert_token_to_symbol_table_token, Bookkeeper, SymbolType, Token};
-use crate::error::Error;
+use crate::bookkeeper::Bookkeeper;
 use crate::parser::Parser;
-use crate::scanner::Scanner;
+
+pub const DEBUG: bool = true;
 
 // Main. What gets called when we invoke the program.
 fn main() {
@@ -51,47 +52,13 @@ fn main() {
         Ok(_) => println!("{}\n{}", "Source program:".blue().bold(), s),
     };
 
-    let s_clone = s.clone();
-
-    // Initialize the source
-    let mut src: Scanner = Scanner::new(s_clone);
-    // The above one is the old one, soon it will be replaced with this one:
-    let mut _parser: Parser = Parser::new(s);
-
     //Initialize the symbol table
-    let mut symtab: Bookkeeper = Bookkeeper::new();
+    let symtab: Bookkeeper = Bookkeeper::new();
 
-    // Print the header of our table to STDOUT.
-    println!(
-        "{0: <30} | {1: <30} | {2: <30}",
-        "Token", "Symbol Type", "Line Number"
-    );
+    let mut parser: Parser = Parser::new(s, symtab);
 
-    // While the source is not done, keep scanning for tokens.
-    while !src.is_done() {
-        let scan_result = src.token_request();
-        // These are options, which be of type Some() or None.
-        let tkn: Option<&Token> = scan_result.0;
-        let err: Option<&Error> = scan_result.1;
-
-        if let Some(..) = err {
-            print!("{}", "An error occurred: ".red().bold());
-            println!("{:?}", err);
-        }
-
-        if let Some(..) = tkn {
-            // If we have a token of some kind, print it.
-            let tkn_ref = tkn.unwrap();
-            println!("{}", tkn_ref);
-
-            // If the token belongs in the symbol table, add it.
-            if tkn.unwrap().symbol_type == SymbolType::Constant
-                || tkn.unwrap().symbol_type == SymbolType::Identifier
-            {
-                symtab.insert(convert_token_to_symbol_table_token(tkn.unwrap().clone()));
-            }
-        }
-    }
+    println!("{}\n", "Parse Output:".blue().bold());
+    parser.parse();
 
     // Print out the contents of the symbol table.
     println!("{}", "Symbol table contents:".blue().bold());
@@ -100,7 +67,7 @@ fn main() {
         "{0: <30} | {1: <30} | {2: <}",
         "Token", "Symbol Type", "Code"
     );
-    for symbol in symtab.symbols {
+    for symbol in parser.scanner.symtab.symbols {
         println!("{}", symbol);
     }
 }

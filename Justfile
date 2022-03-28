@@ -1,9 +1,15 @@
 release:
 	cargo build --release
 
-run: release
+build:
+	cargo build
+
+run: build
 	@echo "Running on Dr. Kim's test program..."
-	./target/release/parser samples/new_example.ssc
+	./target/debug/parser samples/new_example.ssc
+
+out:
+	just run > output.out
 
 debug:
 	cargo build

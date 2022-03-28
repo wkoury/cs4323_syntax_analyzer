@@ -1,26 +1,121 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::stack::Stack;
+use crate::DEBUG;
+
 // We are using this u8 code to represent epsilon in the rules that have it. This should be a last-resort consideration for transitions.
 pub const EPSILON_CODE: u8 = 253;
+pub const START_SYMBOL: u8 = 42;
 
 #[allow(clippy::upper_case_acronyms)]
 pub struct PDA {
-    q: bool, // The one state that we have. We can only accept if this is set to true.
-    stack: Vec<u8>,
-    accept: bool, // Whether or not we have reached an accepting state.
-                  // TODO: create a data structure to hold the rules
+    pub(crate) q: bool, // the one state that we have. we can only accept if this is set to true.
+    step: u32,          // What step in the computation we are at.
+    pub(crate) stack: Stack,
 }
 
 impl PDA {
     pub fn new() -> Self {
-        let mut stack: Vec<u8> = Vec::<u8>::new();
+        let stack: Stack = Stack::new();
 
         PDA {
             q: false,
+            step: 1,
             stack,
-            accept: false,
         }
     }
+
+    // Initialize the PDA by pushing the start symbol onto the stack.
+    pub fn initialize(&mut self) {
+        self.stack.push(START_SYMBOL); // 42, aka <scala>, is the start symbol in our grammar.
+        self.q = true;
+
+        print_step(
+            self.step,
+            0,
+            "None".to_string(),
+            "Push start symbol.".to_string(),
+        )
+    }
+
+    // Run an iteration of the transition function.
+    // Return whether the parsing can continue with a path towards acceptance, because we will want to reject as soon as we can.
+    // The second entry in the tuple is whether or not a new lookahead token needs to be requested.
+    pub fn transition(&mut self, lookahead: u8) -> (bool, bool) {
+        let stack_top = self.stack.pop();
+        let mut ret: (bool, bool) = (false, false);
+        if DEBUG {
+            dbg!(stack_top);
+            dbg!(lookahead);
+            dbg!(ret);
+        }
+        if !is_terminal_symbol(stack_top) {
+            let rule = PARSING_RULES.get(&(stack_top, lookahead));
+            if DEBUG {
+                dbg!(rule);
+            }
+            if let Some(..) = rule {
+                let tokens = EXPANSION_RULES.get(rule.unwrap()).unwrap().to_owned();
+
+                // Push the required tokens onto the stack in reverse order.
+                for code in tokens.iter().rev() {
+                    self.stack.push(code.to_owned());
+                }
+                ret.0 = true;
+            } else {
+                // TODO: handle the case for epsilon rules
+                if DEBUG {
+                    println!(
+                        "Checking for an epsilon rule for non-terminal {}.",
+                        stack_top
+                    );
+                }
+                let epsilon_rule = PARSING_RULES.get(&(stack_top, EPSILON_CODE));
+                if let Some(..) = epsilon_rule {
+                    self.stack.push(epsilon_rule.unwrap().to_owned());
+                    ret.0 = true;
+                }
+            }
+        // If the stack top isn't the lookahead, we cannot accept the string
+        } else if stack_top != lookahead {
+            ret.0 = false;
+        } else {
+            // On the other hand, if the two are equal, then we consume, and will need a new lookahead token.
+            ret.1 = true;
+        }
+
+        if DEBUG {
+            dbg!(ret);
+        }
+
+        // Print the parse output, with the following format:
+        // (Steps, stack top, lookahead, action)
+        print_step(
+            self.step,
+            stack_top,
+            lookahead.to_string(),
+            "ACTION (TODO)".to_string(),
+        );
+        self.step += 1;
+
+        ret
+    }
+}
+
+// Print a step in the parse outupt.
+pub fn print_step(step: u32, stack_top: u8, lookahead: String, action: String) {
+    println!(
+        "{0: <30} | {1: <30} | {2: <30} | {3: <}",
+        step.to_string(),
+        stack_top,
+        lookahead,
+        action
+    );
+}
+
+// Determine whether a symbol is terminal or nonterminal.
+pub fn is_terminal_symbol(code: u8) -> bool {
+    code <= 41 && code > 0
 }
 
 // This is the static HashMap that we will use to store the LL(1) parsing rules.
@@ -32,30 +127,30 @@ lazy_static! {
 
         // <scala>
         for tkn in FIRST_SCALA.iter() {
-            rules.insert((42, *tkn), 1);
+            rules.insert((42, tkn.to_owned()), 1);
         }
 
         // <packages>
         rules.insert((43, 3), 2);
         for tkn in FOLLOW_PACKAGES.iter() {
-            rules.insert((43, *tkn), 3);
+            rules.insert((43, tkn.to_owned()), 3);
         }
 
         // <imports>
         rules.insert((44, 4), 4);
         for tkn in FOLLOW_IMPORTS.iter() {
-            rules.insert((44, *tkn), 5);
+            rules.insert((44, tkn.to_owned()), 5);
         }
 
         // <scala-body>
         for tkn in FIRST_MODIFIER.iter() {
-            rules.insert((45, *tkn), 6);
+            rules.insert((45, tkn.to_owned()), 6);
         }
         rules.insert((45, EPSILON_CODE), 7);
 
         // <subbody>
         for tkn in FIRST_MODIFIER.iter() {
-            rules.insert((46, *tkn), 8);
+            rules.insert((46, tkn.to_owned()), 8);
         }
 
         // <modifier>
@@ -78,7 +173,7 @@ lazy_static! {
 
         // <stmts>
         for tkn in FIRST_STATEMENT.iter() {
-            rules.insert((51, *tkn), 18);
+            rules.insert((51, tkn.to_owned()), 18);
         }
         rules.insert((51, 33), 19);
 
@@ -153,7 +248,7 @@ lazy_static! {
         rules.insert((67, 39), 50);
         rules.insert((67, 40), 51);
         for tkn in FOLLOW_ARITH.iter() {
-            rules.insert((67, *tkn), 52);
+            rules.insert((67, tkn.to_owned()), 52);
         }
 
         // <bool-expr>
@@ -169,6 +264,26 @@ lazy_static! {
 
         rules
     };
+}
+
+#[cfg(test)]
+mod test_parsing_rules {
+    use crate::pda::PARSING_RULES;
+
+    #[test]
+    fn test_rule_one_contains_first_scala() {
+        assert!(PARSING_RULES.get(&(42, 5)).is_some());
+    }
+
+    #[test]
+    fn test_rule_three_contains_follow_packages() {
+        assert!(PARSING_RULES.get(&(43, 4)).is_some());
+    }
+
+    #[test]
+    fn test_invalid_key_returns_none() {
+        assert!(PARSING_RULES.get(&(69, 69)).is_none());
+    }
 }
 
 // This is the static HashMap that we use to store the expansion rules.
@@ -283,7 +398,7 @@ lazy_static! {
         first_scala.insert(EPSILON_CODE); // Inserting the epsilon rule.
         // Also inserting the FIRST(1) of <modifier>
         for tkn in FIRST_MODIFIER.iter() {
-            first_scala.insert(*tkn);
+            first_scala.insert(tkn.to_owned());
         }
 
         first_scala
@@ -307,7 +422,7 @@ lazy_static! {
         follow_packages.insert(4);
         follow_packages.insert(EPSILON_CODE);
         for tkn in FIRST_MODIFIER.iter() {
-            follow_packages.insert(*tkn);
+            follow_packages.insert(tkn.to_owned());
         }
 
         follow_packages
@@ -318,7 +433,7 @@ lazy_static! {
 
         follow_imports.insert(EPSILON_CODE);
         for tkn in FIRST_MODIFIER.iter() {
-            follow_imports.insert(*tkn);
+            follow_imports.insert(tkn.to_owned());
         }
 
         follow_imports
@@ -393,5 +508,51 @@ mod test_transition_rules {
         let actual: bool = FOLLOW_PACKAGES.contains(&EPSILON_CODE);
 
         assert_eq!(expected, actual);
+    }
+}
+
+#[cfg(test)]
+mod is_terminal_symbol_tests {
+    use crate::pda::{is_terminal_symbol, EPSILON_CODE};
+
+    #[test]
+    fn test_zero() {
+        assert!(!is_terminal_symbol(0));
+    }
+
+    #[test]
+    fn test_one() {
+        assert!(is_terminal_symbol(1));
+    }
+
+    #[test]
+    fn test_forty_one() {
+        assert!(is_terminal_symbol(41));
+    }
+
+    #[test]
+    fn test_forty_two() {
+        assert!(!is_terminal_symbol(42));
+    }
+
+    #[test]
+    fn test_forty_three() {
+        assert!(!is_terminal_symbol(43));
+    }
+
+    #[test]
+    fn test_sixty_nine() {
+        assert!(!is_terminal_symbol(69));
+    }
+
+    // Testing a couple of edge cases.
+    #[test]
+    fn test_seventy() {
+        assert!(!is_terminal_symbol(70));
+    }
+
+    #[test]
+    fn test_epsilon() {
+        assert!(!is_terminal_symbol(EPSILON_CODE));
     }
 }

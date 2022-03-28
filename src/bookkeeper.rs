@@ -77,6 +77,7 @@ pub fn convert_token_to_symbol_table_token(tkn: Token) -> SymbolTableToken {
 }
 
 // An implementation of our Bookkeeper.
+#[derive(Clone, Debug)]
 pub struct Bookkeeper {
     pub(crate) symbols: HashSet<SymbolTableToken>,
 }

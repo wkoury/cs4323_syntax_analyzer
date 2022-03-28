@@ -5,7 +5,8 @@ pub enum ErrorType {
     InvalidSymbol,
     ConstantHasTooManyPeriods,
     IdentifierBeginsWithNumber,
-    SyntaxError, // Just a general placeholder syntax error
+    // Just a general placeholder syntax error
+    // SyntaxError,
 }
 
 #[derive(Clone, Debug, PartialEq)]

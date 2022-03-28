@@ -2,9 +2,11 @@
 
 use std::collections::VecDeque;
 
-use crate::bookkeeper::{SymbolType, Token};
+use crate::bookkeeper::{convert_token_to_symbol_table_token, Bookkeeper, SymbolType, Token};
 use crate::error::{Error, ErrorType};
 
+// Override the main global variable.. this is a mess
+// FIXME
 const DEBUG: bool = false;
 
 // A struct to represent the scanner, keeping track of where the character is consumed, among other things.
@@ -18,11 +20,12 @@ pub struct Scanner {
     pub(crate) extra_tokens: VecDeque<Option<Token>>,
     pub(crate) error: Option<Error>,
     comment: bool,
+    pub(crate) symtab: Bookkeeper,
 }
 
 impl Scanner {
     // Create a new source object.
-    pub fn new(src: String) -> Self {
+    pub fn new(src: String, symtab: Bookkeeper) -> Self {
         Scanner {
             source: src,
             index: 0,
@@ -32,6 +35,7 @@ impl Scanner {
             extra_tokens: VecDeque::<Option<Token>>::new(),
             error: None,
             comment: false,
+            symtab,
         }
     }
 
@@ -110,12 +114,12 @@ impl Scanner {
     }
 
     // Determine whether we have consumed all characters in the source.
-    pub fn is_done(&mut self) -> bool {
+    pub fn is_done(&self) -> bool {
         self.index >= self.source.len()
     }
 
     // Start moving along the DFA.
-    pub fn token_request(&mut self) -> (Option<&Token>, Option<&Error>) {
+    pub fn token_request(&mut self) -> (Option<&Token>, Option<&Error>, bool) {
         // Reset the potential token, previously accepted token, potential extra token, etc.
         self.scanned_characters = "".to_string();
         self.error = None;
@@ -127,16 +131,26 @@ impl Scanner {
             }
             // Pop the queue to return the token.
             self.token = self.extra_tokens.pop_front().unwrap();
-            return (self.token.as_ref(), self.error.as_ref());
+            return (self.token.as_ref(), self.error.as_ref(), self.is_done());
         }
 
         if self.is_done() {
-            return (None, None);
+            return (None, None, self.is_done());
         }
 
         self.initial_state();
 
-        (self.token.as_ref(), self.error.as_ref())
+        // If the token belongs in the symbol table, add it.
+        if self.token.is_some()
+            && (self.token.as_ref().unwrap().symbol_type == SymbolType::Constant
+                || self.token.as_ref().unwrap().symbol_type == SymbolType::Identifier)
+        {
+            self.symtab.insert(convert_token_to_symbol_table_token(
+                self.token.as_ref().unwrap().clone(),
+            ));
+        }
+
+        (self.token.as_ref(), self.error.as_ref(), self.is_done())
     }
 
     // Start another iteration of the DFA. Scan for another token, though it may return an error instead.
@@ -3282,12 +3296,14 @@ fn match_special_symbol_to_code(special_symbol: char) -> u8 {
 
 #[cfg(test)]
 mod scanner_keyword_tests {
+    use crate::bookkeeper::Bookkeeper;
     use crate::scanner::*;
 
     #[test]
     fn test_whitespace() {
         let src_str = " \t\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn: Option<&Token> = src.token_request().0;
         let expected: Option<&Token> = None;
@@ -3300,7 +3316,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_package() {
         let src_str = "package a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3319,7 +3336,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_protected() {
         let src_str = "protected package a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3338,7 +3356,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_int() {
         let src_str = "int a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3357,7 +3376,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_if() {
         let src_str = "if a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3376,7 +3396,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_in() {
         let src_str = "in a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3395,7 +3416,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_import() {
         let src_str = "import package a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3413,7 +3435,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_abstract() {
         let src_str = "abstract package a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3431,7 +3454,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_and() {
         let src_str = "and is true".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3449,7 +3473,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_final() {
         let src_str = "final int a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3467,7 +3492,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_false() {
         let src_str = "false and true".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3485,7 +3511,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_sealed() {
         let src_str = "sealed int a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3503,7 +3530,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_class() {
         let src_str = "class a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3521,7 +3549,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_object() {
         let src_str = "object a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3539,7 +3568,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_val() {
         let src_str = "val a = false;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3557,7 +3587,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_def() {
         let src_str = "def this.is.function".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3575,7 +3606,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_leq() {
         let src_str = "x <= 5".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         // Skip first token just to see what happens
         src.token_request();
@@ -3595,7 +3627,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_else() {
         let src_str = "else if".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3613,7 +3646,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_while() {
         let src_str = "while is true".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3631,7 +3665,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_case() {
         let src_str = "case a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3649,7 +3684,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_geq() {
         let src_str = "x => 5".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         src.token_request();
         let tkn = src.token_request().0.unwrap();
@@ -3668,7 +3704,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_return() {
         let src_str = "return a;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3686,7 +3723,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_not() {
         let src_str = "not true".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3704,7 +3742,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_true() {
         let src_str = "true and false = false".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3722,7 +3761,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_or() {
         let src_str = "or is true".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3740,7 +3780,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_real() {
         let src_str = "real a = 5.0".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3758,7 +3799,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_bool() {
         let src_str = "bool b = false;".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let tkn = src.token_request().0.unwrap();
 
@@ -3777,7 +3819,8 @@ mod scanner_keyword_tests {
     #[test]
     fn test_invalid_keyword() {
         let src_str = "this_is_not_a_valid_keyword\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         src.token_request();
 
@@ -3799,7 +3842,8 @@ mod scanner_constant_tests {
     #[test]
     fn test_zero_point_zero() {
         let src_str = "0.0\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "0.0".to_string(),
@@ -3817,7 +3861,8 @@ mod scanner_constant_tests {
     #[test]
     fn test_two_hundred_point_six() {
         let src_str = "200.6\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "200.6".to_string(),
@@ -3835,7 +3880,8 @@ mod scanner_constant_tests {
     #[test]
     fn test_point_four_seven() {
         let src_str = ".47\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: ".47".to_string(),
@@ -3853,7 +3899,8 @@ mod scanner_constant_tests {
     #[test]
     fn test_zero() {
         let src_str = "00\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "00".to_string(),
@@ -3871,7 +3918,8 @@ mod scanner_constant_tests {
     #[test]
     fn test_too_many_periods() {
         let src_str = "25.2.5\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         src.token_request();
 
@@ -3894,7 +3942,8 @@ mod scanner_id_tests {
     #[test]
     fn test_x() {
         let src_str = "x\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "x".to_string(),
@@ -3912,7 +3961,8 @@ mod scanner_id_tests {
     #[test]
     fn test_xx() {
         let src_str = "xx\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "xx".to_string(),
@@ -3930,7 +3980,8 @@ mod scanner_id_tests {
     #[test]
     fn test_x_with_semicolon() {
         let src_str = "x;\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "x".to_string(),
@@ -3948,7 +3999,8 @@ mod scanner_id_tests {
     #[test]
     fn test_a() {
         let src_str = "a\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "a".to_string(),
@@ -3966,7 +4018,8 @@ mod scanner_id_tests {
     #[test]
     fn test_aa() {
         let src_str = "aa\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "aa".to_string(),
@@ -3984,7 +4037,8 @@ mod scanner_id_tests {
     #[test]
     fn test_aa_with_semicolon() {
         let src_str = "aa;\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "aa".to_string(),
@@ -4002,7 +4056,8 @@ mod scanner_id_tests {
     #[test]
     fn test_print_but_without_t() {
         let src_str = "prin\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "prin".to_string(),
@@ -4020,7 +4075,8 @@ mod scanner_id_tests {
     #[test]
     fn test_print_but_without_t_and_with_semicolon() {
         let src_str = "prin;\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "prin".to_string(),
@@ -4038,7 +4094,8 @@ mod scanner_id_tests {
     #[test]
     fn test_one_of_dr_kim_crazy_identifiers() {
         let src_str = "b.c...67\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "b.c...67".to_string(),
@@ -4056,7 +4113,8 @@ mod scanner_id_tests {
     #[test]
     fn test_one_of_dr_kim_crazy_identifiers_with_semicolon() {
         let src_str = "b.c...67;\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "b.c...67".to_string(),
@@ -4074,7 +4132,8 @@ mod scanner_id_tests {
     #[test]
     fn test_one_of_dr_kim_crazy_identifiers_with_parentheses() {
         let src_str = "b.c...67()\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "b.c...67".to_string(),
@@ -4116,7 +4175,8 @@ mod scanner_id_tests {
     #[test]
     fn test_i() {
         let src_str = "i\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "i".to_string(),
@@ -4134,7 +4194,8 @@ mod scanner_id_tests {
     #[test]
     fn test_i_with_semicolon() {
         let src_str = "i;\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "i".to_string(),
@@ -4152,7 +4213,8 @@ mod scanner_id_tests {
     #[test]
     fn test_ii() {
         let src_str = "ii\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "ii".to_string(),
@@ -4170,7 +4232,8 @@ mod scanner_id_tests {
     #[test]
     fn test_ii_with_semicolon() {
         let src_str = "ii;\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "ii".to_string(),
@@ -4193,7 +4256,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_equal_sign() {
         let src_str = "=\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "=".to_string(),
@@ -4211,7 +4275,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_semicolon() {
         let src_str = ";\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: ";".to_string(),
@@ -4229,7 +4294,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_left_bracket() {
         let src_str = "{\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "{".to_string(),
@@ -4247,7 +4313,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_right_bracket() {
         let src_str = "}\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "}".to_string(),
@@ -4265,7 +4332,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_left_parenthesis() {
         let src_str = "(\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "(".to_string(),
@@ -4283,7 +4351,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_right_parenthesis() {
         let src_str = ")\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: ")".to_string(),
@@ -4301,7 +4370,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_colon() {
         let src_str = ":\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: ":".to_string(),
@@ -4319,7 +4389,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_comma() {
         let src_str = ",\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: ",".to_string(),
@@ -4337,7 +4408,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_plus_sign() {
         let src_str = "+\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "+".to_string(),
@@ -4355,7 +4427,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_star() {
         let src_str = "*\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "*".to_string(),
@@ -4373,7 +4446,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_at_sign() {
         let src_str = "@\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         let expected: &Token = &Some(Token {
             token: "@".to_string(),
@@ -4391,7 +4465,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_comments() {
         let src_str = "int a # this is a comment\nint b".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         src.token_request();
         src.token_request();
@@ -4416,7 +4491,8 @@ mod scanner_special_symbol_tests {
     #[test]
     fn test_dollar_sign() {
         let src_str = "\n$\n".to_string();
-        let mut src = Scanner::new(src_str);
+        let symtab: Bookkeeper = Bookkeeper::new();
+        let mut src = Scanner::new(src_str, symtab);
 
         println!("{:?}", src.token_request());
 
@@ -4429,6 +4505,7 @@ mod scanner_special_symbol_tests {
 
 #[cfg(test)]
 mod bigger_scanner_tests {
+    use crate::bookkeeper::Bookkeeper;
     use crate::scanner::*;
 
     #[test]
@@ -4443,7 +4520,8 @@ mod bigger_scanner_tests {
         $
         "
         .to_string();
-        let mut src: Scanner = Scanner::new(src_str);
+        let symtab = Bookkeeper::new();
+        let mut src: Scanner = Scanner::new(src_str, symtab);
 
         let mut tkn = src.token_request().0.unwrap();
 
