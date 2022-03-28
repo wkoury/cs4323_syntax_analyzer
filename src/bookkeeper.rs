@@ -42,7 +42,7 @@ impl std::fmt::Display for Token {
             "{0: <30} | {1: <30} | {2: <30}",
             self.token,
             self.symbol_type.to_string(),
-            self.line_number
+            self.line_number.to_string()
         )
     }
 }
@@ -57,7 +57,13 @@ pub struct SymbolTableToken {
 // This tells the program how to println a symbol table token in a nice way.
 impl std::fmt::Display for SymbolTableToken {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{0: <30} | {1: <}", self.token, self.symbol_type)
+        write!(
+            f,
+            "{0: <30} | {1: <30} | {2: <}",
+            self.token,
+            self.symbol_type.to_string(),
+            self.code
+        )
     }
 }
 

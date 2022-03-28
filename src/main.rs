@@ -9,11 +9,15 @@ use std::process;
 
 // This is a third-party library that enables printing of styled text to the terminal. It is not noticeable in the .txt output, but it was helpful in debugging this program.
 use colored::*;
+// lazy_static is a third-party library that enables the creation of "static" (create once, use forever) data structures in Rust.
+#[macro_use]
+extern crate lazy_static;
 
 // Importing our third-party files.
 mod bookkeeper;
 mod error;
 mod parser;
+mod pda;
 mod scanner;
 
 use crate::bookkeeper::{convert_token_to_symbol_table_token, Bookkeeper, SymbolType, Token};
@@ -52,7 +56,7 @@ fn main() {
     // Initialize the source
     let mut src: Scanner = Scanner::new(s_clone);
     // The above one is the old one, soon it will be replaced with this one:
-    let mut parser: Parser = Parser::new(s);
+    let mut _parser: Parser = Parser::new(s);
 
     //Initialize the symbol table
     let mut symtab: Bookkeeper = Bookkeeper::new();
@@ -92,7 +96,10 @@ fn main() {
     // Print out the contents of the symbol table.
     println!("{}", "Symbol table contents:".blue().bold());
     // Table header
-    println!("{0: <30} | {1: <}", "Token", "Symbol Type");
+    println!(
+        "{0: <30} | {1: <30} | {2: <}",
+        "Token", "Symbol Type", "Code"
+    );
     for symbol in symtab.symbols {
         println!("{}", symbol);
     }
