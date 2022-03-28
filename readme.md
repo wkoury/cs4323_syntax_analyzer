@@ -10,8 +10,9 @@ There are some special integer codes that need to be kept track of by the progra
 - `253` -> `epsilon`
 
 # To Do
-- [ ] Refactor `main` to do everything in the `parse()` function, which should only be called one time
-- [x] Add integer codes to the symbol table
-- [ ] Refactor the scanner to only send tokens to the parser upon a token request
+- [ ] Debug the LL(1) parse table and deterministic PDA
 - [ ] Add new parser errors as you discover them
-- [ ] Implement the LL(1) parse table and deterministic PDA
+- [x] Refactor `main` to do everything in the `parse()` function, which should only be called one time
+- [x] Add integer codes to the symbol table
+- [x] Refactor the scanner to only send tokens to the parser upon a token request
+- [x] Implement the LL(1) parse table and deterministic PDA
