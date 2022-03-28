@@ -8,14 +8,18 @@ pub struct PDA {
     q: bool, // The one state that we have. We can only accept if this is set to true.
     stack: Vec<u8>,
     accept: bool, // Whether or not we have reached an accepting state.
-    // TODO: create a data structure to hold the rules
+                  // TODO: create a data structure to hold the rules
 }
 
 impl PDA {
     pub fn new() -> Self {
         let mut stack: Vec<u8> = Vec::<u8>::new();
 
-        PDA { q: false, stack, accept: false }
+        PDA {
+            q: false,
+            stack,
+            accept: false,
+        }
     }
 }
 
