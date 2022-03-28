@@ -5,9 +5,9 @@ Syntactical analyzer for Dr. Changwook Kim's Compiler Construction course. Sprin
 # Notes
 ## Integer Codes
 There are some special integer codes that need to be kept track of by the programmer and outside observers:
-`255` => errors
-`254` => `#`
-`253` => `epsilon`
+- `255` -> errors
+- `254` -> `#`
+- `253` -> `epsilon`
 
 # To Do
 - [ ] Refactor `main` to do everything in the `parse()` function, which should only be called one time
