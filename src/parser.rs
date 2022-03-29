@@ -2,7 +2,8 @@
 
 use crate::bookkeeper::{Bookkeeper, SymbolType, Token};
 use crate::error::{Error, ErrorType};
-use crate::pda::{is_terminal_symbol, EPSILON_CODE, PDA};
+use crate::pda::{is_terminal_symbol, PDA};
+use crate::rules::EPSILON_CODE;
 use crate::scanner::Scanner;
 use crate::DEBUG;
 
@@ -66,8 +67,7 @@ impl Parser {
                     dbg!(&self.lookahead);
                 }
 
-                let transition_result =
-                    self.pda.transition(self.lookahead.to_owned().unwrap().code);
+                let transition_result = self.pda.transition(self.lookahead.to_owned().unwrap());
                 if !transition_result.0 {
                     println!("REJECT");
                     return false;

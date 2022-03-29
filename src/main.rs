@@ -18,13 +18,14 @@ mod bookkeeper;
 mod error;
 mod parser;
 mod pda;
+mod rules;
 mod scanner;
 mod stack;
 
 use crate::bookkeeper::Bookkeeper;
 use crate::parser::Parser;
 
-pub const DEBUG: bool = true;
+pub const DEBUG: bool = false;
 
 // Main. What gets called when we invoke the program.
 fn main() {
