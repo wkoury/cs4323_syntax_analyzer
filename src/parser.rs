@@ -1,8 +1,8 @@
 #![warn(clippy::all)]
 
-use crate::bookkeeper::{Bookkeeper, Token};
+use crate::bookkeeper::{Bookkeeper, SymbolType, Token};
 use crate::error::{Error, ErrorType};
-use crate::pda::{is_terminal_symbol, PDA};
+use crate::pda::{is_terminal_symbol, EPSILON_CODE, PDA};
 use crate::scanner::Scanner;
 use crate::DEBUG;
 
@@ -38,7 +38,7 @@ impl Parser {
         let mut needs_new_lookahead = true;
         let mut token_request_result: (Option<&Token>, Option<&Error>, bool) = (None, None, false);
         let mut scanner_is_done: bool = false;
-        while !scanner_is_done {
+        while !self.pda.stack.is_empty() {
             // First, we need to fetch a new lookahead token.
             if needs_new_lookahead {
                 if DEBUG {
@@ -48,10 +48,19 @@ impl Parser {
                 needs_new_lookahead = false;
             }
 
-            if token_request_result.to_owned().1.is_none()
-                && token_request_result.to_owned().0.is_some()
-            {
-                self.lookahead = Some(token_request_result.0.unwrap().to_owned());
+            if token_request_result.to_owned().1.is_none() {
+                if token_request_result.to_owned().0.is_some() {
+                    self.lookahead = Some(token_request_result.0.unwrap().to_owned());
+                } else {
+                    // Handle the epsilon case
+                    // Just create some filler stuff. We will only use the code, and that's fine.
+                    self.lookahead = Some(Token {
+                        token: "epsilon".to_string(),
+                        symbol_type: SymbolType::Epsilon,
+                        line_number: 0,
+                        code: EPSILON_CODE,
+                    });
+                }
 
                 if DEBUG {
                     dbg!(&self.lookahead);
@@ -70,11 +79,10 @@ impl Parser {
                     needs_new_lookahead = true;
                 }
             }
-
             scanner_is_done = token_request_result.to_owned().2;
         }
 
-        let ret: bool = self.pda.q && self.pda.stack.is_empty();
+        let ret: bool = self.pda.q && self.pda.stack.is_empty() && scanner_is_done;
         if ret {
             // FIXME this is not really the right way to do this
             println!("ACCEPT");
@@ -141,8 +149,15 @@ mod parser_tests {
     }
 
     #[test]
-    fn test_body_only() {
+    fn test_invalid_body_only() {
         let mut p = init("abstract class a {}\n$\n".to_string());
+
+        assert!(!p.parse());
+    }
+
+    #[test]
+    fn test_body_only() {
+        let mut p = init("abstract class {} \n $ \n".to_string());
 
         assert!(p.parse());
     }

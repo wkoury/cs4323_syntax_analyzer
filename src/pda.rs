@@ -71,8 +71,21 @@ impl PDA {
                     );
                 }
                 let epsilon_rule = PARSING_RULES.get(&(stack_top, EPSILON_CODE));
+
+                if DEBUG {
+                    dbg!(epsilon_rule);
+                }
+
                 if let Some(..) = epsilon_rule {
-                    self.stack.push(epsilon_rule.unwrap().to_owned());
+                    let tokens = EXPANSION_RULES
+                        .get(epsilon_rule.unwrap())
+                        .unwrap()
+                        .to_owned();
+
+                    // Push the required tokens onto the stack in reverse order.
+                    for code in tokens.iter().rev() {
+                        self.stack.push(code.to_owned());
+                    }
                     ret.0 = true;
                 }
             }
@@ -81,6 +94,10 @@ impl PDA {
             ret.0 = false;
         } else {
             // On the other hand, if the two are equal, then we consume, and will need a new lookahead token.
+            if DEBUG {
+                println!("MATCH.");
+            }
+            ret.0 = true;
             ret.1 = true;
         }
 
@@ -169,7 +186,7 @@ lazy_static! {
         rules.insert((49, 11), 15);
 
         // <block>
-        rules.insert((50, 32), 16);
+        rules.insert((50, 32), 17);
 
         // <stmts>
         for tkn in FIRST_STATEMENT.iter() {

@@ -9,6 +9,7 @@ pub enum SymbolType {
     Constant,
     Identifier,
     SpecialSymbol,
+    Epsilon, // Only use this for syntactic analysis!!!!
 }
 
 // This tells the program how to println a SymbolType in a nice way.
@@ -19,6 +20,7 @@ impl std::fmt::Display for SymbolType {
             SymbolType::Constant => "Constant".to_string(),
             SymbolType::Identifier => "Identifier".to_string(),
             SymbolType::SpecialSymbol => "Special Symbol".to_string(),
+            SymbolType::Epsilon => "Epsilon".to_string(),
         };
 
         write!(f, "{}", printable)
