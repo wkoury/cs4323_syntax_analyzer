@@ -10,6 +10,7 @@ There are some special integer codes that need to be kept track of by the progra
 - `253` -> `epsilon`
 
 # To Do
+- [ ] Replace the `u8`s in the PDA with `Token`s
 - [x] Debug the LL(1) parse table and deterministic PDA
 - [ ] Add new parser errors as you discover them
 - [ ] Print out each task as you perform it
