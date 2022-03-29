@@ -39,7 +39,8 @@ impl Stack {
         ret
     }
 
-    pub fn peek(&mut self) -> u8 {
+    // FIXME get rid of this function if you aren't going to use it
+    pub fn _peek(&mut self) -> u8 {
         if self.is_empty() {
             panic!("Attempting to peek() from an empty stack!");
         }
