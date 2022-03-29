@@ -35,7 +35,8 @@ impl PDA {
             0,
             "None".to_string(),
             "Push start symbol.".to_string(),
-        )
+        );
+        self.step += 1;
     }
 
     // Run an iteration of the transition function.
