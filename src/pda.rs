@@ -39,6 +39,7 @@ impl PDA {
     // Return whether the parsing can continue with a path towards acceptance, because we will want to reject as soon as we can.
     // The second entry in the tuple is whether or not a new lookahead token needs to be requested.
     pub fn transition(&mut self, lookahead: Token) -> (bool, bool) {
+        // Pop the stack, create a default action message (error)
         let stack_top = self.stack.pop();
         let mut action: String = "ERROR".to_string();
         let mut ret: (bool, bool) = (false, false);
@@ -48,6 +49,7 @@ impl PDA {
             dbg!(ret);
         }
         if !is_terminal_symbol(stack_top) {
+            // Get our parsing rules, which we need to do first before we get our expansion rules.
             let rule = PARSING_RULES.get(&(stack_top, lookahead.code));
             if DEBUG {
                 dbg!(rule);

@@ -13,6 +13,7 @@ impl Stack {
         Stack { stack }
     }
 
+    // Push to the stack.
     pub fn push(&mut self, n: u8) {
         if DEBUG {
             println!("Pushing {} to the stack.", n);
@@ -25,6 +26,7 @@ impl Stack {
         }
     }
 
+    // Pop an element from the stack, and panic if we do so in an illegal way.
     pub fn pop(&mut self) -> u8 {
         if self.is_empty() {
             panic!("Attempting to pop() from an empty stack!");
@@ -34,20 +36,6 @@ impl Stack {
         if DEBUG {
             println!("Popping {} from the stack.", ret);
             dbg!(&self.stack);
-        }
-
-        ret
-    }
-
-    // FIXME get rid of this function if you aren't going to use it
-    pub fn _peek(&mut self) -> u8 {
-        if self.is_empty() {
-            panic!("Attempting to peek() from an empty stack!");
-        }
-        let ret = self.stack[self.stack.len() - 1];
-
-        if DEBUG {
-            println!("Peeking {} from the stack.", ret);
         }
 
         ret

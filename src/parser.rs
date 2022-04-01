@@ -1,7 +1,7 @@
 #![warn(clippy::all)]
 
 use crate::bookkeeper::{Bookkeeper, SymbolType, Token};
-use crate::error::{Error, ErrorType};
+use crate::error::Error;
 use crate::pda::{is_terminal_symbol, PDA};
 use crate::rules::EPSILON_CODE;
 use crate::scanner::Scanner;
@@ -11,7 +11,6 @@ pub struct Parser {
     pub(crate) scanner: Scanner,
     lookahead: Option<Token>,
     pda: PDA,
-    // error: Option<Error>,
 }
 
 impl Parser {
@@ -23,7 +22,6 @@ impl Parser {
             scanner,
             lookahead: None,
             pda,
-            // error: None,
         }
     }
 
@@ -45,10 +43,11 @@ impl Parser {
                 if DEBUG {
                     println!("New lookahead needed, making token request.");
                 }
-                token_request_result /*: (Option<&Token>, Option<&Error>) */ = self.scanner.token_request().to_owned();
+                token_request_result = self.scanner.token_request().to_owned();
                 needs_new_lookahead = false;
             }
 
+            // If we have no error, and if we do in fact get a token from the request.
             if token_request_result.to_owned().1.is_none() {
                 if token_request_result.to_owned().0.is_some() {
                     self.lookahead = Some(token_request_result.0.unwrap().to_owned());
@@ -67,18 +66,22 @@ impl Parser {
                     dbg!(&self.lookahead);
                 }
 
+                // Run a transition of the PDA, and see whether a path to acceptance still exists.
                 let transition_result = self.pda.transition(self.lookahead.to_owned().unwrap());
                 if !transition_result.0 {
                     println!("REJECT");
                     return false;
                 }
 
+                // Determine whether we need a new lookahead token.
                 let symbol_code = self.lookahead.as_ref().unwrap().code;
                 if is_terminal_symbol(symbol_code) && transition_result.1 {
                     // consume the symbol, reset the lookahead
                     needs_new_lookahead = true;
                 }
             }
+
+            // Keep track of whether the scanner is done.
             scanner_is_done = token_request_result.to_owned().2;
         }
 
