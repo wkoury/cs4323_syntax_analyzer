@@ -6,7 +6,6 @@ use crate::bookkeeper::{convert_token_to_symbol_table_token, Bookkeeper, SymbolT
 use crate::error::{Error, ErrorType};
 
 // Override the main global variable.. this is a mess
-// FIXME
 const DEBUG: bool = false;
 
 // A struct to represent the scanner, keeping track of where the character is consumed, among other things.

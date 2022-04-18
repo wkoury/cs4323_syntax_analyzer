@@ -87,7 +87,6 @@ impl Parser {
 
         let ret: bool = self.pda.q && self.pda.stack.is_empty() && scanner_is_done;
         if ret {
-            // FIXME this is not really the right way to do this
             println!("ACCEPT");
         } else {
             println!("REJECT");
